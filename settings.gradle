@@ -6,13 +6,8 @@ pluginManagement {
     }
 }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// 移除 dependencyResolutionManagement，使用传统的 allprojects 方式
+// 这样与根 build.gradle 中的 allprojects 配置兼容
 
 rootProject.name = "ShijianAI-Trading"
 include ':app'

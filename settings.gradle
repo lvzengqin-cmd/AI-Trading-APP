@@ -6,8 +6,18 @@ pluginManagement {
     }
 }
 
-// 移除 dependencyResolutionManagement，使用传统的 allprojects 方式
-// 这样与根 build.gradle 中的 allprojects 配置兼容
+plugins {
+    id 'com.android.application' version '8.1.4' apply false
+    id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
 rootProject.name = "ShijianAI-Trading"
 include ':app'

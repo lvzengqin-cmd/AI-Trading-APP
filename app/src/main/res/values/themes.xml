@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.ShijianAI" parent="Theme.MaterialComponents.Dark.NoActionBar">
+    <style name="Theme.ShijianAI" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>

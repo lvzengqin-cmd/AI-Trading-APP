@@ -1,35 +1,41 @@
-// Config.kt - 配置文件
+// Config.kt - 应用配置
 package com.shijian.aitrading.utils
 
 object Config {
-    // 服务器配置 - Render免费版
-    const val SERVER_URL = "https://shijian-ai-backend.onrender.com"
-    const val API_BASE = "$SERVER_URL/api"
+    // ======== API配置 ========
+    // 后端服务地址
+    const val BASE_URL = "https://ceyishijian-ai-backend.onrender.com"
     
-    // 客服配置
-    const val CUSTOMER_SERVICE_QQ = "1306353623"
-    const val WEBSITE_URL = "https://www.yucebot.com"
+    // API 端点
+    const val API_REGISTER = "/api/register"
+    const val API_LOGIN = "/api/login"
+    const val API_USER_INFO = "/api/user/info"
+    const val API_SIGNALS = "/api/signals"
     
-    // 默认交易金额
-    const val DEFAULT_TRADE_AMOUNT = "20"
+    // ======== Webhook配置（由后端自动生成，用户不可见）========
+    // 注意：Webhook ID 不再存储在本地，而是完全由后端管理
+    // 用户只需要登录，系统自动连接
     
-    // 币安APP包名
-    const val BINANCE_PACKAGE = "com.binance.dev"
+    // ======== 客服配置 ========
+    const val CUSTOMER_SERVICE_QQ = "23558335"
     
-    // 币安界面元素ID（基于你的宏脚本）
-    object BinanceIds {
-        const val TIME_30MIN = "30 分钟"
-        const val AMOUNT_INPUT = "com.binance.dev:id/2131431205"
-        const val BTN_BUY = "com.binance.dev:id/2131431697"  // 上涨/做多
-        const val BTN_SELL = "com.binance.dev:id/2131431698" // 下跌/做空
-        const val BTN_CONFIRM = "确认"
-    }
-    
-    // 点击坐标（备用方案）
-    object Coordinates {
-        val TIME_30MIN = Pair(278f, 1016f)
-        val AMOUNT_INPUT = Pair(267f, 1162f)
-        val BTN_BUY = Pair(190f, 1359f)   // 做多按钮
-        val BTN_SELL = Pair(530f, 1359f)  // 做空按钮
+    // ======== 配置步骤（用于引导用户配置交易APP）========
+    object ConfigSteps {
+        const val STEP_EVENT_CONTRACT = 0
+        const val STEP_TIME_30M = 1
+        const val STEP_AMOUNT_INPUT = 2
+        const val STEP_ENTER_AMOUNT = 3
+        const val STEP_TRADE_BUTTON = 4
+        const val STEP_CONFIRM = 5
+        const val STEP_COMPLETE = 6
+        
+        val STEP_NAMES = arrayOf(
+            "事件合约按钮",
+            "30分钟选项",
+            "金额输入框",
+            "输入金额",
+            "做多/做空按钮",
+            "确认按钮"
+        )
     }
 }

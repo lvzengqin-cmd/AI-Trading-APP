@@ -79,58 +79,98 @@ class TradingService : AccessibilityService() {
     
     override fun onInterrupt() {}
     
-    // 执行交易（基于宏脚本逻辑）
+    // 执行交易（基于用户配置的坐标）
     private suspend fun executeTrade(type: String, amount: String) {
         try {
-            // 1. 启动币安APP
-            launchBinance()
-            delay(1000)
-            
-            // 2. 点击"30分钟"时间周期
-            clickByText("30 分钟") ?: clickByCoordinates(
-                Config.Coordinates.TIME_30MIN.first,
-                Config.Coordinates.TIME_30MIN.second
-            )
-            delay(500)
-            
-            // 3. 点击金额输入框
-            clickByViewId(Config.BinanceIds.AMOUNT_INPUT) ?: clickByCoordinates(
-                Config.Coordinates.AMOUNT_INPUT.first,
-                Config.Coordinates.AMOUNT_INPUT.second
-            )
-            delay(500)
-            
-            // 4. 输入金额
-            inputText(amount)
-            delay(500)
-            
-            // 5. 点击做多/做空按钮
-            if (type == "buy") {
-                clickByViewId(Config.BinanceIds.BTN_BUY) ?: 
-                clickByText("上涨") ?:
-                clickByCoordinates(
-                    Config.Coordinates.BTN_BUY.first,
-                    Config.Coordinates.BTN_BUY.second
-                )
+            // 获取配置
+            val config = if (type == "buy") {
+                PreferenceManager.getBuyConfig(this)
             } else {
-                clickByViewId(Config.BinanceIds.BTN_SELL) ?: 
-                clickByText("下跌") ?:
-                clickByCoordinates(
-                    Config.Coordinates.BTN_SELL.first,
-                    Config.Coordinates.BTN_SELL.second
-                )
+                PreferenceManager.getSellConfig(this)
             }
-            delay(500)
             
-            // 6. 点击确认
-            clickByText("确认")
+            // 检查配置是否完成
+            if (config.values.all { it.first == 0f && it.second == 0f }) {
+                sendBroadcast(Intent("TRADE_ERROR").apply {
+                    putExtra("error", "未配置交易坐标，请先进行配置")
+                })
+                return
+            }
             
-            // 发送广播通知主界面
-            val intent = Intent("TRADE_COMPLETED").apply {
+            // 1. 启动币安APP
+            sendBroadcast(Intent("TRADE_LOG").apply {
+                putExtra("message", "正在启动币安APP...")
+            })
+            launchBinance()
+            delay(2000)
+            
+            // 2. 点击"事件合约"
+            config["event"]?.let { (x, y) ->
+                if (x != 0f && y != 0f) {
+                    sendBroadcast(Intent("TRADE_LOG").apply {
+                        putExtra("message", "点击事件合约位置 (${x.toInt()}, ${y.toInt()})")
+                    })
+                    clickByCoordinates(x, y)
+                    delay(800)
+                }
+            }
+            
+            // 3. 点击"30分钟"
+            config["time"]?.let { (x, y) ->
+                if (x != 0f && y != 0f) {
+                    sendBroadcast(Intent("TRADE_LOG").apply {
+                        putExtra("message", "点击30分钟位置 (${x.toInt()}, ${y.toInt()})")
+                    })
+                    clickByCoordinates(x, y)
+                    delay(800)
+                }
+            }
+            
+            // 4. 点击金额输入框
+            config["amount"]?.let { (x, y) ->
+                if (x != 0f && y != 0f) {
+                    sendBroadcast(Intent("TRADE_LOG").apply {
+                        putExtra("message", "点击金额输入框 (${x.toInt()}, ${y.toInt()})")
+                    })
+                    clickByCoordinates(x, y)
+                    delay(800)
+                }
+            }
+            
+            // 5. 输入金额
+            sendBroadcast(Intent("TRADE_LOG").apply {
+                putExtra("message", "输入金额: $amount")
+            })
+            inputText(amount)
+            delay(800)
+            
+            // 6. 点击做多/做空按钮
+            config["button"]?.let { (x, y) ->
+                if (x != 0f && y != 0f) {
+                    sendBroadcast(Intent("TRADE_LOG").apply {
+                        putExtra("message", "点击${if (type == "buy") "做多" else "做空"}按钮 (${x.toInt()}, ${y.toInt()})")
+                    })
+                    clickByCoordinates(x, y)
+                    delay(800)
+                }
+            }
+            
+            // 7. 点击确认
+            config["confirm"]?.let { (x, y) ->
+                if (x != 0f && y != 0f) {
+                    sendBroadcast(Intent("TRADE_LOG").apply {
+                        putExtra("message", "点击确认按钮 (${x.toInt()}, ${y.toInt()})")
+                    })
+                    clickByCoordinates(x, y)
+                    delay(500)
+                }
+            }
+            
+            // 发送成功通知
+            sendBroadcast(Intent("TRADE_COMPLETED").apply {
                 putExtra("type", type)
                 putExtra("amount", amount)
-            }
-            sendBroadcast(intent)
+            })
             
         } catch (e: Exception) {
             e.printStackTrace()

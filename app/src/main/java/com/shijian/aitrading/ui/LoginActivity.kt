@@ -8,6 +8,7 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.shijian.aitrading.R
+import com.shijian.aitrading.utils.Config
 import com.shijian.aitrading.utils.HttpUtil
 import com.shijian.aitrading.utils.PreferenceManager
 import kotlinx.coroutines.*
@@ -72,6 +73,22 @@ class LoginActivity : AppCompatActivity() {
             return
         }
         
+        // Demo模式 - 无需服务器
+        if (Config.DEMO_MODE) {
+            if (username == Config.DEMO_USERNAME && password == Config.DEMO_PASSWORD) {
+                // Demo登录成功
+                PreferenceManager.setToken(this, "demo_token_" + System.currentTimeMillis())
+                PreferenceManager.setUsername(this, username)
+                Toast.makeText(this, "Demo模式登录成功！", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+                return
+            } else {
+                showError("Demo账号: ${Config.DEMO_USERNAME}, 密码: ${Config.DEMO_PASSWORD}")
+                return
+            }
+        }
+        
         showLoading(true)
         
         scope.launch {
@@ -91,7 +108,7 @@ class LoginActivity : AppCompatActivity() {
                     } else {
                         showError(json.optString("error", "登录失败"))
                     }
-                } ?: showError("网络错误")
+                } ?: showError("网络错误，请检查服务器配置")
             } catch (e: Exception) {
                 showError("登录失败: ${e.message}")
             } finally {
@@ -145,6 +162,14 @@ class LoginActivity : AppCompatActivity() {
     }
     
     private fun register(username: String, password: String) {
+        // Demo模式 - 注册功能提示
+        if (Config.DEMO_MODE) {
+            Toast.makeText(this, "Demo模式：请使用账号 ${Config.DEMO_USERNAME} 密码 ${Config.DEMO_PASSWORD} 登录", Toast.LENGTH_LONG).show()
+            etUsername.setText(Config.DEMO_USERNAME)
+            etPassword.setText(Config.DEMO_PASSWORD)
+            return
+        }
+        
         showLoading(true)
         
         scope.launch {
@@ -164,7 +189,7 @@ class LoginActivity : AppCompatActivity() {
                     } else {
                         showError(json.optString("error", "注册失败"))
                     }
-                } ?: showError("网络错误")
+                } ?: showError("网络错误，请检查服务器配置")
             } catch (e: Exception) {
                 showError("注册失败: ${e.message}")
             } finally {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    
+    <!-- 外圆 -->
+    <path
+        android:strokeColor="#00D4AA"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M20,2 A18,18 0 1,1 19.99,2" />
+    
+    <!-- 十字准星 - 水平线 -->
+    <path
+        android:strokeColor="#00D4AA"
+        android:strokeWidth="2"
+        android:pathData="M2,20 L16,20 M24,20 L38,20" />
+    
+    <!-- 十字准星 - 垂直线 -->
+    <path
+        android:strokeColor="#00D4AA"
+        android:strokeWidth="2"
+        android:pathData="M20,2 L20,16 M20,24 L20,38" />
+    
+    <!-- 中心点 (用圆形路径代替) -->
+    <path
+        android:fillColor="#F85149"
+        android:pathData="M20,17 A3,3 0 1,1 19.99,17" />
+
+</vector>

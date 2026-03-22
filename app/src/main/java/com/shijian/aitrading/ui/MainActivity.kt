@@ -1,9 +1,9 @@
-// MainActivity.kt - 主界面
+// MainActivity.kt - 主界面（简化版）
 package com.shijian.aitrading.ui
 
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,11 +11,14 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
 import android.view.accessibility.AccessibilityManager
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.Switch
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,24 +37,44 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
     
+    private lateinit var btnSettings: ImageButton
     private lateinit var tvStatus: TextView
+    private lateinit var tvUsername: TextView
     private lateinit var tvExpireDate: TextView
     private lateinit var tvDeviceId: TextView
-    private lateinit var etAmount: EditText
     private lateinit var switchAutoTrade: Switch
-    private lateinit var switchAutoWake: Switch
     private lateinit var btnTestBuy: Button
     private lateinit var btnTestSell: Button
     private lateinit var cardPermission: View
     private lateinit var rvSignals: RecyclerView
-    private lateinit var rvLogs: RecyclerView
     private lateinit var btnGrantPermission: Button
+    private lateinit var btnCopyQq: Button
     
     private val signals = mutableListOf<SignalRecord>()
     private val logs = mutableListOf<String>()
     private lateinit var signalAdapter: SignalAdapter
     private lateinit var logAdapter: LogAdapter
     private val scope = CoroutineScope(Dispatchers.Main + Job())
+    
+    private val tradeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                "TRADE_COMPLETED" -> {
+                    val type = intent.getStringExtra("type")
+                    val amount = intent.getStringExtra("amount")
+                    addLog("✅ 交易完成: ${if (type == "buy") "做多" else "做空"} $amount USDT")
+                }
+                "TRADE_ERROR" -> {
+                    val error = intent.getStringExtra("error")
+                    addLog("❌ 交易失败: $error")
+                }
+                "TRADE_LOG" -> {
+                    val message = intent.getStringExtra("message")
+                    message?.let { addLog(it) }
+                }
+            }
+        }
+    }
     
     data class SignalRecord(
         val time: String,
@@ -71,26 +94,31 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun initViews() {
+        btnSettings = findViewById(R.id.btn_settings)
         tvStatus = findViewById(R.id.tv_status)
+        tvUsername = findViewById(R.id.tv_username)
         tvExpireDate = findViewById(R.id.tv_expire_date)
         tvDeviceId = findViewById(R.id.tv_device_id)
-        etAmount = findViewById(R.id.et_amount)
         switchAutoTrade = findViewById(R.id.switch_auto_trade)
-        switchAutoWake = findViewById(R.id.switch_auto_wake)
         btnTestBuy = findViewById(R.id.btn_test_buy)
         btnTestSell = findViewById(R.id.btn_test_sell)
         cardPermission = findViewById(R.id.card_permission)
         rvSignals = findViewById(R.id.rv_signals)
-        rvLogs = findViewById(R.id.rv_logs)
         btnGrantPermission = findViewById(R.id.btn_grant_permission)
+        btnCopyQq = findViewById(R.id.btn_copy_qq)
         
-        // 加载保存的设置
-        etAmount.setText(PreferenceManager.getTradeAmount(this))
-        switchAutoWake.isChecked = PreferenceManager.getAutoWake(this)
+        // 设置按钮
+        btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        
+        // 显示用户名
+        val username = PreferenceManager.getUsername(this) ?: "未登录"
+        tvUsername.text = username
         
         // 显示设备ID
         val deviceId = PreferenceManager.getDeviceId(this)
-        tvDeviceId.text = "设备ID: ${deviceId.takeLast(8)}... (点击复制)"
+        tvDeviceId.text = "设备ID: ${deviceId.takeLast(8)}..."
         tvDeviceId.setOnClickListener {
             copyToClipboard(deviceId)
             Toast.makeText(this, "设备ID已复制", Toast.LENGTH_SHORT).show()
@@ -115,24 +143,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        // 自动亮屏开关
-        switchAutoWake.setOnCheckedChangeListener { _, isChecked ->
-            PreferenceManager.setAutoWake(this, isChecked)
-            if (isChecked) {
-                requestIgnoreBatteryOptimizations()
-            }
-            addLog(if (isChecked) "已开启自动亮屏" else "已关闭自动亮屏")
-        }
-        
         // 测试按钮
         btnTestBuy.setOnClickListener { testTrade("buy") }
         btnTestSell.setOnClickListener { testTrade("sell") }
         
-        // 保存金额设置
-        etAmount.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                PreferenceManager.setTradeAmount(this, etAmount.text.toString())
-            }
+        // 复制QQ按钮
+        btnCopyQq.setOnClickListener {
+            copyToClipboard("23558335")
+            Toast.makeText(this, "客服QQ已复制: 23558335", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -140,10 +158,6 @@ class MainActivity : AppCompatActivity() {
         signalAdapter = SignalAdapter(signals)
         rvSignals.layoutManager = LinearLayoutManager(this)
         rvSignals.adapter = signalAdapter
-        
-        logAdapter = LogAdapter(logs)
-        rvLogs.layoutManager = LinearLayoutManager(this)
-        rvLogs.adapter = logAdapter
     }
     
     private fun loadUserInfo() {
@@ -159,13 +173,13 @@ class MainActivity : AppCompatActivity() {
                     
                     runOnUiThread {
                         if (isExpired) {
-                            tvExpireDate.text = "会员状态: 已过期"
+                            tvExpireDate.text = "已过期"
                             tvExpireDate.setTextColor(getColor(android.R.color.holo_red_dark))
                             switchAutoTrade.isEnabled = false
                         } else {
                             val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                                 .format(Date(expireDate))
-                            tvExpireDate.text = "会员到期: $date"
+                            tvExpireDate.text = date
                         }
                     }
                 }
@@ -253,7 +267,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        val amount = etAmount.text.toString()
+        val amount = PreferenceManager.getTradeAmount(this)
         addLog("🧪 测试: ${if (type == "buy") "做多" else "做空"} $amount USDT")
         
         // 执行交易
@@ -267,14 +281,13 @@ class MainActivity : AppCompatActivity() {
     
     fun addLog(message: String) {
         val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-        logs.add(0, "[$time] $message")
-        logAdapter.notifyItemInserted(0)
-        rvLogs.scrollToPosition(0)
+        // 这里简化处理，实际应该显示在界面上
+        android.util.Log.d("MainActivity", "[$time] $message")
     }
     
     private fun copyToClipboard(text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Device ID", text))
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("text", text))
     }
     
     private fun showPermissionDialog() {
@@ -286,62 +299,26 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
     
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
-    
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.menu_contact -> {
-                showContactDialog()
-                true
-            }
-            R.id.menu_website -> {
-                openWebsite()
-                true
-            }
-            R.id.menu_logout -> {
-                logout()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-    
-    private fun showContactDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("联系客服")
-            .setMessage("QQ: ${Config.CUSTOMER_SERVICE_QQ}\n\n点击复制QQ号")
-            .setPositiveButton("复制QQ") { _, _ ->
-                copyToClipboard(Config.CUSTOMER_SERVICE_QQ)
-                Toast.makeText(this, "QQ号已复制", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("关闭", null)
-            .show()
-    }
-    
-    private fun openWebsite() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(Config.WEBSITE_URL))
-        startActivity(intent)
-    }
-    
-    private fun logout() {
-        AlertDialog.Builder(this)
-            .setTitle("退出登录")
-            .setMessage("确定要退出吗？")
-            .setPositiveButton("确定") { _, _ ->
-                PreferenceManager.clear(this)
-                startActivity(Intent(this, LoginActivity::class.java))
-                finish()
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-    
     override fun onResume() {
         super.onResume()
         checkPermissions()
+        
+        // 注册广播接收器
+        val filter = IntentFilter().apply {
+            addAction("TRADE_COMPLETED")
+            addAction("TRADE_ERROR")
+            addAction("TRADE_LOG")
+        }
+        registerReceiver(tradeReceiver, filter)
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        try {
+            unregisterReceiver(tradeReceiver)
+        } catch (e: Exception) {
+            // 忽略
+        }
     }
     
     override fun onDestroy() {

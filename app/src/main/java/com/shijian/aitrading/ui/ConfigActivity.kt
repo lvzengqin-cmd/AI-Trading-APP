@@ -82,16 +82,55 @@ class ConfigActivity : AppCompatActivity() {
     }
     
     private fun showAppSelector() {
-        // 获取已安装的APP列表
+        // 获取已安装的APP列表 - 使用更全面的方式
         val pm = packageManager
+        
+        // 方法1：获取所有可启动的应用（包括通过主屏幕启动的）
         val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
-        val apps = pm.queryIntentActivities(mainIntent, 0)
-            .filter { it.activityInfo.packageName != packageName } // 排除自己
-            .sortedBy { it.loadLabel(pm).toString() }
+        val launcherApps = pm.queryIntentActivities(mainIntent, 0)
         
-        if (apps.isEmpty()) {
+        // 方法2：获取所有已安装的应用（需要过滤出有界面的）
+        val allApps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
+            .filter { appInfo ->
+                // 过滤条件：有启动Activity且不是系统应用（或包含币安、交易类应用）
+                pm.getLaunchIntentForPackage(appInfo.packageName) != null
+            }
+        
+        // 合并两个列表，去重
+        val appMap = mutableMapOf<String, String>() // packageName -> appName
+        
+        // 先添加LAUNCHER类别的应用
+        launcherApps.forEach { resolveInfo ->
+            val packageName = resolveInfo.activityInfo.packageName
+            if (packageName != this.packageName) {
+                appMap[packageName] = resolveInfo.loadLabel(pm).toString()
+            }
+        }
+        
+        // 添加其他可启动的应用（排除系统应用，但保留已知的交易APP）
+        val tradingApps = listOf("com.binance", "com.hibt", "com.okex", "com.huobi", 
+            "com.gateio", "com.mexc", "com.bybit", "com.bitget")
+        allApps.forEach { appInfo ->
+            val packageName = appInfo.packageName
+            if (packageName != this.packageName && !appMap.containsKey(packageName)) {
+                // 如果是交易类APP或者是用户安装的非系统应用
+                val isTradingApp = tradingApps.any { packageName.contains(it, ignoreCase = true) }
+                val isUserApp = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0
+                
+                if (isTradingApp || isUserApp) {
+                    try {
+                        val appName = pm.getApplicationLabel(appInfo).toString()
+                        appMap[packageName] = appName
+                    } catch (e: Exception) {
+                        // 忽略无法获取名称的应用
+                    }
+                }
+            }
+        }
+        
+        if (appMap.isEmpty()) {
             AlertDialog.Builder(this)
                 .setTitle("无法获取APP列表")
                 .setMessage("请确保您的手机上已安装交易软件（如币安、HIBT等）")
@@ -100,12 +139,14 @@ class ConfigActivity : AppCompatActivity() {
             return
         }
         
-        val appNames = apps.map { it.loadLabel(pm).toString() }.toTypedArray()
-        val appPackages = apps.map { it.activityInfo.packageName }.toList()
+        // 转换为列表并排序
+        val sortedApps = appMap.toList().sortedBy { it.second }
+        val appNames = sortedApps.map { it.second }.toTypedArray()
+        val appPackages = sortedApps.map { it.first }.toList()
         
-        // 使用单选列表，更可靠
+        // 使用单选列表
         AlertDialog.Builder(this)
-            .setTitle("选择交易APP")
+            .setTitle("选择交易APP (${appNames.size}个应用)")
             .setItems(appNames) { _, which ->
                 selectedAppPackage = appPackages[which]
                 startConfig()
